@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML Login Form</title>
+    <link rel="stylesheet" href="/styles/login.css">
+    <script>
+        function solve(event) {
+            event.preventDefault();
+            document.forms[0].submit(); // Submits the form normally
+        }
+    </script>
+</head>
+<body>
+    <div class="main">
+        <h1>InSync Language Translator</h1>
+        <h3>Enter your login credentials</h3>
+        <form method="POST" action="/">
+            <label for="first">Username:</label>
+            <input type="text" id="first" name="username" placeholder="Enter your Username" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" placeholder="Enter your Password" required>
+
+            <!-- Error message -->
+            <div id="error-message">
+                Wrong login credentials! Please try again.
+            </div>
+
+            <div class="wrap">
+                <button type="submit" onclick="solve(event)">Submit</button>
+            </div>
+        </form>
+        <p>Not registered? <a href="/signup" style="text-decoration: none;">Create an account</a></p>
+    </div>
+
+    <script>
+        // Check if the 'error' query parameter exists in the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+
+        // If the error is 'invalid-credentials', display the error message
+        if (error === 'invalid-credentials') {
+            document.getElementById('error-message').style.display = 'block';
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Translation Center | InSync</title>
+  <link rel="stylesheet" href="/styles/homepage.css">
+  <script src="https://www.WebRTC-Experiment.com/RecordRTC.js"></script>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav>
+    <div class="menu">
+      <div class="logo">
+        <a href="homepage">
+          <img src="/images/logos.png" alt="InSync Logo" class="logo-img">
+        </a>
+      </div>
+      <ul>
+        <li><a href="homepage">Home</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content Section -->
+  <div class="center-container">
+    <!-- Input Text Area -->
+    <div class="text-box">
+      <textarea id="inputText" placeholder="Enter text to translate..." oninput="updateCharCount('inputText', 'inputCharCount')"></textarea>
+      <span id="inputCharCount" class="char-count">0 characters</span>
+    </div>
+    
+    <!-- Target Language Selection -->
+    <div class="text-box">
+      <select id="languageDropdown" class="language-dropdown" aria-label="Select target language">
+        <option value="spa_Latn">Spanish</option>
+        <option value="fra_Latn">French</option>
+        <option value="rus_Cyrl">Russian</option>
+        <option value="amh_Ethi">Amharic</option>
+        <option value="zho_Hant">Traditional Mandarin</option>
+        <option value="afr_Latn">Afrikaans</option>
+        <option value="deu_Latn">German</option>
+      </select>
+    </div>
+
+    <!-- Output Text Area -->
+    <div class="text-box">
+      <textarea id="outputText" placeholder="Translation output will appear here..." readonly oninput="updateCharCount('outputText', 'outputCharCount')"></textarea>
+      <span id="outputCharCount" class="char-count">0 characters</span>
+    </div>
+
+    <!-- Save Button -->
+    <div class="save-button-container">
+      <button id="saveBtn" disabled>Save Translation</button>
+    </div>
+    
+    <!-- Audio Player -->
+    <div class="audio-player-container">
+      <audio id="audioPlayer" controls class="styled-audio-player" style="display: none;"></audio>
+      <div class="progress-container">
+        <progress id="audioProgress" class="audio-progress" value="0" max="100"></progress>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Translate Button -->
+  <div class="translate-button-container">
+    <button class="translate-button" id="translateButton">Translate</button>
+  </div>
+
+  <div class="audio-recorder-container">
+    <h1 class="audio-recorder-title">Audio Recorder</h1>
+    <div class="speech-controls">
+        <select id="speechLanguageDropdown" class="language-dropdown" aria-label="Select speech language">
+            <option value="eng_Latn">English</option>
+            <option value="spa_Latn">Spanish</option>
+            <option value="fra_Latn">French</option>
+            <option value="rus_Cyrl">Russian</option>
+            <option value="amh_Ethi">Amharic</option>
+            <option value="zho_Hant">Traditional Mandarin</option>
+            <option value="afr_Latn">Afrikaans</option>
+            <option value="deu_Latn">German</option>
+        </select>
+        <button class="record-button" id="recordButton">Start Recording</button>
+    </div>
+    <p class="status-text" id="status">Status: Idle</p>
+    <audio class="audio-playback" id="audioPlayback" controls></audio>
+    <div class="transcript-box">
+        <h2>Transcript</h2>
+        <textarea id="transcriptBox" readonly placeholder="Your speech will appear here..."></textarea>
+    </div>
+</div>
+
+  <script>
+    // Function to update character count dynamically as the user types
+    function updateCharCount(textareaId, charCountId) {
+      const textarea = document.getElementById(textareaId);
+      const charCount = textarea.value.length;
+      document.getElementById(charCountId).textContent = `${charCount} characters`;
+    }
+
+    // Event listener for Translate button to send input to the Flask server
+    document.getElementById('translateButton').addEventListener('click', async () => {
+      const inputText = document.getElementById('inputText').value;
+      const selectedLang = document.getElementById('languageDropdown').value;
+
+      // Call the Flask API to translate the input text to the selected language
+      try {
+        const response = await fetch('http://127.0.0.1:5000/translate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            input: inputText,
+            target_lang: selectedLang
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch translation');
+        }
+
+        const data = await response.json();
+        document.getElementById('outputText').value = data.output;
+
+        // Enable the Save button after translation
+        document.getElementById('saveBtn').disabled = false;
+
+        // Audio handling
+        const audioPlayer = document.getElementById('audioPlayer');
+        audioPlayer.src = data.audio;  // Set the audio source to the Flask response URL
+        audioPlayer.style.display = "block"; // Display the audio player
+        audioPlayer.play(); // Automatically play the audio after loading
+
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('outputText').value = 'Error occurred. Please try again.';
+      }
+    });
+
+    // Event listener for Save button to send translation data to the server
+    document.getElementById('saveBtn').addEventListener('click', function() {
+      const originalText = document.getElementById('inputText').value;
+      const translatedText = document.getElementById('outputText').value;
+      const targetLang = document.getElementById('languageDropdown').value;
+
+      fetch('/save_translation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          original_text: originalText,
+          translate_text: translatedText,
+          target_lang: targetLang
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          alert('Translation saved successfully!');
+          document.getElementById('saveBtn').disabled = true;
+        } else {
+          alert('Error saving translation: ' + data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving translation.');
+      });
+    });
+
+    // Event listener for when the audio is playing
+    document.getElementById('audioPlayer').addEventListener('play', function() {
+      const audioPlayer = document.getElementById('audioPlayer');
+      const progressBar = document.getElementById('audioProgress');
+
+      // Update progress bar as the audio plays
+      const updateProgress = () => {
+        const value = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+        progressBar.value = value;
+      };
+
+      // Update the progress every 100ms
+      const intervalId = setInterval(updateProgress, 100);
+
+      // Stop updating when the audio finishes
+      audioPlayer.addEventListener('ended', function() {
+        clearInterval(intervalId);
+        progressBar.value = 100; 
+      });
+    });
+
+    const recordButton = document.getElementById('recordButton');
+    const status = document.getElementById('status');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const transcriptBox = document.getElementById('transcriptBox');
+
+    let isRecording = false;
+    let recorder;
+    let audioStream;
+
+    recordButton.addEventListener('click', async () => {
+      if (!isRecording) {
+        try {
+          // Start recording
+          audioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              channelCount: 1,
+              sampleRate: 16000
+            }
+          });
+          
+          recorder = new RecordRTC(audioStream, {
+            type: 'audio',
+            mimeType: 'audio/wav',
+            recorderType: RecordRTC.StereoAudioRecorder,
+            numberOfAudioChannels: 1,
+            desiredSampRate: 16000
+          });
+
+          recorder.startRecording();
+          isRecording = true;
+          recordButton.textContent = "Stop Recording";
+          status.textContent = "Status: Recording...";
+          
+        } catch (error) {
+          console.error('Error starting recording:', error);
+          status.textContent = "Status: Error starting recording";
+        }
+      } else {
+        // Stop recording
+        isRecording = false;
+        recordButton.textContent = "Start Recording";
+        status.textContent = "Status: Processing...";
+        
+        recorder.stopRecording(function() {
+          const blob = recorder.getBlob();
+          
+          // Stop all tracks
+          audioStream.getTracks().forEach(track => track.stop());
+          
+          // Play the recording
+          audioPlayback.src = URL.createObjectURL(blob);
+          audioPlayback.load();
+          audioPlayback.play().catch(error => {
+            console.error('Error playing audio:', error);
+          });
+
+          // Upload the recording
+          const formData = new FormData();
+          formData.append('audio', blob, 'recording.wav');
+
+          fetch('http://127.0.0.1:5000/upload_audio', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => {
+            if (response.ok) {
+              status.textContent = "Status: Getting transcript...";
+              // Get selected speech language
+              const selectedSpeechLang = document.getElementById('speechLanguageDropdown').value;
+              return fetch(`http://127.0.0.1:5000/get_transcript?language=${selectedSpeechLang}`);
+            } else {
+              throw new Error('Upload failed');
+            }
+          })
+          .then(response => response.json())
+          .then(data => {
+            transcriptBox.value = data.transcript;
+            document.getElementById('inputText').value = data.transcript;
+            updateCharCount('inputText', 'inputCharCount');
+            status.textContent = "Status: Transcript ready for translation";
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            status.textContent = "Status: Error processing audio";
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>
